@@ -2,13 +2,13 @@
 title: "Reproduction Analysis of Malcomb et al 2014"
 author: "Joseph Holler, Kufre Udoh, Drew An-Pham, Middlebury Open GIScience Classes"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: html_document
 editor_options:
   markdown:
     wrap: sentence
   chunk_output_type: console
 knit: (function(inputFile, encoding) {
-  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../../docs/report") })
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../../docs") })
 ---
 
 # Abstract 
@@ -581,7 +581,7 @@ Surveys are grouped into clusters with one geographic point.
 Therefore, the traditional authority to which each survey will be assigned must be spatially joined to the cluster point, and then joined by attribute to the household survey.
 The adaptive capacity calculation at the household level also requires urban/rural status, which is stored in the cluster.
 
-```{r join-clusters-to-tas; eval = FALSE}
+```{r join-clusters-to-tas, eval = FALSE}
 # spatial join traditional authority ID to clusters and drop geometry
 # study may be reanalyzed by buffering GPS points to account for 
 # GPS location randomization
@@ -600,7 +600,8 @@ paste(sum(is.na(cluster_ta$ta_id)),
   "of", nrow(cluster_ta), 
   "clusters did not spatially join to a populated traditional authority") %>% noquote()
 ```
-```{r join-clusterta-to-surveys}
+
+```{r join-clusterta-to-surveys, eval = FALSE}
 # join traditional authority and urban/rural data from DHS clusters to each DHS survey
 # select variables for adaptive capacity analysis
 dhshh <- dhshh %>%
@@ -665,7 +666,7 @@ paste(nrow(incomplete), "household surveys with incomplete attribute data") %>%
 
 We remove incomplete household surveys.
 
-```{r remove-missing-hh-data eval = FALSE}
+```{r remove-missing-hh-data, eval = FALSE}
 paste(nrow(dhshh), "total household surveys")
 
 hh_capacity_t <- dhshh %>%
