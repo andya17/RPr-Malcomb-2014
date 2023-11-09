@@ -6,6 +6,7 @@ output: pdf_document
 editor_options:
   markdown:
     wrap: sentence
+  chunk_output_type: console
 knit: (function(inputFile, encoding) {
   rmarkdown::render(inputFile, encoding = encoding, output_dir = "../../docs/report") })
 ---
@@ -81,7 +82,24 @@ The original study was conducted using STATA&trade; (4.4) and ArcGIS&trade; (4.6
 The study was originally conducted using ArcGIS and unspecified statistical software.
 This reproduction study uses R, including the rdhs package for DHS survey data, the sf package for vector analysis, the stars package for raster analysis, and the tmap package for cartography.
 
-```{r setup, include = FALSE}
+```{r setup 2, include = FALSE}
+library(downloader)
+library(rdhs)
+library(haven)
+library(readr)
+library(tidyverse)
+library(pastecs)
+library(stars)
+library(sf)
+library(sp)
+library(classInt)
+library(tmap)
+library(units)
+library(knitr)
+library(here)
+```
+
+```{r setup, include = FALSE, eval = FALSE}
 # list of required packages
 packages = c("downloader", "rdhs", "haven", "readr", "tidyverse", "pastecs",
              "stars", "sf", "sp", "classInt", 
@@ -539,7 +557,7 @@ dhs_downloads <- get_datasets(
 ```
 Load tabular data of household surveys
 
-```{r load DHS survey data, messages=FALSE, warnings=FALSE}
+```{r load DHS survey data, messages=FALSE, warnings=FALSE, eval = FALSE}
 dhshh <- readRDS(here(private_r, "datasets", "MWHR61SV.rds")) %>%
   zap_labels()
 head(dhshh)
@@ -548,7 +566,7 @@ head(dhshh)
 Load geographic data of household survey clusters. 
 Some household survey points are erroneously placed at the WGS 1984 coordinate reference system origin (Equator and Prime Meridian).
 
-```{r load-DHS-geog-data, fig.height = 2}
+```{r load-DHS-geog-data, fig.height = 2, eval = FALSE}
 dhsclusters <- readRDS(here(private_r, "datasets", "MWGE62FL.rds")) %>%
   as("sf") # convert to simple features
 
@@ -563,7 +581,7 @@ Surveys are grouped into clusters with one geographic point.
 Therefore, the traditional authority to which each survey will be assigned must be spatially joined to the cluster point, and then joined by attribute to the household survey.
 The adaptive capacity calculation at the household level also requires urban/rural status, which is stored in the cluster.
 
-```{r join-clusters-to-tas}
+```{r join-clusters-to-tas; eval = FALSE}
 # spatial join traditional authority ID to clusters and drop geometry
 # study may be reanalyzed by buffering GPS points to account for 
 # GPS location randomization
@@ -576,7 +594,7 @@ cluster_ta <- dhsclusters %>%
 cluster_ta %>% saveRDS(here(public_d, "cluster_ta.rds"))
 ```
 
-```{r load-cluster-ta}
+```{r load-cluster-ta, eval = FALSE}
 cluster_ta <- readRDS(here(public_d, "cluster_ta.rds"))
 paste(sum(is.na(cluster_ta$ta_id)),
   "of", nrow(cluster_ta), 
@@ -625,7 +643,7 @@ Many household surveys contain inconclusive answers (e.g. "I don't know") or are
 The livestock variable will be calculated as a sum of four livestock types, so we remove any household with uncertain answers about any of the livestock types and remove households with missing data for all livestock types.
 Households with answers about some livestock types and missing data for others are still included in the data.
 
-```{r find-missing-hh-data}
+```{r find-missing-hh-data, eval = FALSE}
 incomplete <- dhshh %>%  
   filter(
     HV246A >= 98  |
@@ -647,7 +665,7 @@ paste(nrow(incomplete), "household surveys with incomplete attribute data") %>%
 
 We remove incomplete household surveys.
 
-```{r remove-missing-hh-data}
+```{r remove-missing-hh-data eval = FALSE}
 paste(nrow(dhshh), "total household surveys")
 
 hh_capacity_t <- dhshh %>%
@@ -740,7 +758,7 @@ We had to make many assumptions about calculating individual components, e.g. ab
 Rescaling to a quintile rank as described in the original study is unclear, especially considering the number of discrete or even binary inputs.
 We have made a judgement call to do this by calculating percent rank and multiplying by 4, producing a theoretical domain of 0 to 4 similar to that of quintiles.
 
-```{r rescale-capacity-vars}
+```{r rescale-capacity-vars, eval = FALSE}
 hh_capacity_t <- hh_capacity_t  %>%
   # sum livestock, including HH with some missing values
   rowwise() %>%
@@ -776,7 +794,7 @@ Calculate household-level adaptive capacity scores based on original study Table
 The indicators have already been rescaled to a possible domain of `0` to `4`, and the weights sum to `0.4`, giving a possible domain of
 adaptive capacity scores from `0.0` to `1.6`.
 
-```{r hh-capacity}
+```{r hh-capacity, eval = FALSE}
 hh_capacity_t <- mutate(hh_capacity_t, capacity = 
                         0.04 * livestock +
                         0.03 * sick +
@@ -797,7 +815,7 @@ head(hh_capacity_t[,c(33,21:32)])
 
 Summary statistics of adaptive capacity and its components at the household level.
 
-```{r hh-capacity-summary}
+```{r hh-capacity-summary, eval = FALSE}
 hh_stats <- stat.desc(hh_capacity_t[,c(33,21:32)]) %>%
   mutate_if(is.numeric, round, digits=2)
 hh_stats[-c(1:3, 7, 10:12, 14),] %>% t() %>% kable() # brackets remove unnecessary statistics from output
@@ -810,7 +828,7 @@ Aggregate household adaptive capacity scores to traditional authorities.
 The original paper found adaptive capacity scores for 203 TAs, of which we found 6 TAs were conservation areas, leaving 197 meaningful TA scores.
 We created an additional 9 TAs from errors from three features on Lake Malawi, so if the original authors did not notice those errors, we could expect scores for 206 TAs.
 
-```{r aggregate-capacity-to-tas}
+```{r aggregate-capacity-to-tas, eval = FALSE}
 ta_capacity_t <- hh_capacity_t %>% 
   group_by(ta_id) %>%
   summarize(
@@ -837,7 +855,7 @@ ta_capacity_t <- hh_capacity_t %>%
 Now that household adaptive capacity data has been aggregated, they may be saved to the `data\derived\public`
 directory.
 
-```{r save-TA-adaptive-capacity}
+```{r save-TA-adaptive-capacity, eval = FALSE}
 ta_capacity_t %>% saveRDS(here(public_d, "adaptive_capacity.RDS"))
 rm(list=c("dhsclusters", "dhshh", "cluster_ta", "hh_capacity_t", "ta_capacity_t"))
 ```
@@ -1100,12 +1118,13 @@ plot(capacity_r)
 
 Clip and warp drought exposure to match our extent and spatial resolution.
 
-```{r clip-map-drought-exposure, warning = F}
+```{r clip-map-drought-exposure-2, warning = F}
 # use bilinear resampling to average continuous population exposure values
 drw = dr %>% st_warp(blank, use_gdal = T, method = "bilinear")
 names(drw) <- "dre" # rename band to acronym for drought exposure
 plot(drw)
 ```
+
 Create a mask with the adaptive capacity results so that lakes, conservation areas, and traditional authorities with no data will not skew the classification / rescaling of drought exposure. 
 Apply this mask to drought exposure.
 Masking is our own decision based on intuition: it is not specified in the original publication.
@@ -1399,8 +1418,8 @@ range <- ceiling(max(abs(max(vulnerability_r$diffv, na.rm = TRUE)),
 vuln_diff_map = ggplot() +
   geom_stars(data = vulnerability_r["diffv"]) +
   scale_fill_gradient2(
-    low = "#e9a3c9",
-    high = "#beaed4",
+    low = "#DA65A5",
+    high = "#967CB9",
     breaks = c(-range,0,range),
     labels = c(paste0("-",range), "0", paste0(range)),
     na.value = "transparent",
@@ -1418,6 +1437,8 @@ vuln_diff_map = ggplot() +
 vuln_diff_map
 ```
 
+**Reanalysis change**: These new colors are shades of the past colors. This may assist with viewing some of the lighter values (closer to 0). I used the website Color-Hex (https://www.color-hex.com/) to help with choosing darker colors.
+
 ```{r save-fig5-comparison-data}
 write_stars(vulnerability_r, here(public_d, "fig5diff.tif"), layer = "diffv")
 write_stars(vulnerability_r, here(public_d, "fig5or.tif"), layer = "orv")
@@ -1426,8 +1447,18 @@ write_stars(vulnerability_r, here(public_d, "fig5rp.tif"), layer = "rpv")
 
 # Discussion
 
-# Conclusions
+A primary topic of discussion ought to be the direct comparisons made between the adaptive capacity and vulnerability maps for the reproduction study and the original study. Both comparison figures present large differences, likely reflecting in some ways the deviations from the original study which were pursued to reduce uncertainty. It is clear that for many TAs, there is a difference in adaptive capacity whereby the reproduction of Figure 4 has a value in the natural break below the break in which the corresponding value for the original figure appeared. This inconsistency could be a result of the planned deviations outlined above related to normalization, weighting, and aggregation of household-level adaptive capacity data (Tate 2013), for there was a perceived lack of clarity in these steps in original study. The pattern of values with a -1 placement in adaptive capacity natural break when comparing the reproduction to the original is spread across the country. It is also worth noting that the reproduction almost never resulted in adaptive capacity values which were in the natural break above the one in which the corresponding value for the original figure, and there were few instances of a -2 difference in natural break. Those TAs which have missing values can be interpreted as lacking due to the measurement error (Tate 2013) of the original study relating to the lake geometry.
 
+The comparison figure based on Figure 5, or the vulnerability assessment, is similarly indicative of a reproduction that differs greatly from the original results of the analysis. The values for vulnerability are seen to be lower in the reproduction compared to the original assessment for much of the country, including around the area corresponding to the Southern Lakeshore livelihood zone. There are select areas - including the north of the country and possibly part of the Lower Shire Valley - where vulnerability values are greater in the reproduction than the original. However, this pattern is more sparse than the substantial percentage of the country which appears to have a negative difference when taking the reproduction less the original. This initially draws comparisons to the pattern seen in the comparison figure based upon Figure 4, but the vulnerability calculations also addressed the uncertainty in the scaling methodology for the original study as well as the validity of the vulnerability equation itself. Altering the equation such that physical exposure is inverted was a planned deviation to obtain an equation which better represents other vulnerability assessments in the literature; adaptive capacity is often included as a value which is subtracted from a value, which is the inversion of its usage in the equation from the original study (Prof. Holler, personal communication, 10/19/2023). The vulnerability equation clearly represents a lack of consistency in that the authors state it to refer to household resilience, yet resilience is what is being mapped in Figure 4, a map which this reproduction has already established should refer to adaptive capacity (Assets + Access). This complicates an analysis of the work of Malcomb et al., and it necessitated deviations in labeling (Figure 4 is for adaptive capacity and Figure 5 is for vulnerability, not resilience) for this reproduction. The deviations related to the equation or normalization (Tate 2013) may have impacted the results, leading to the large differences in vulnerability in the comparison figure.
+
+For the reanalysis, the low and high colors for this comparison figure were altered to shades of the previous colors in order to increase readability.
+
+**Reanalysis change**: This discussion section aims to analyze the figures comparing results and involve Tate (2013). It was felt that an explanation of the comparison figures could aid a discussion of some of the inconsistencies with the original study.
+
+# Conclusions
+It would be difficult to classify this reproduction as a success due to the differences between the figures produced by the data and the ones seen in the original paper; in particular, it has been shown that the final vulnerability map (Figure 5) contrasts greatly with the original. As Malcomb et al. write in their conclusion that their maps could have relevance in Malawian policy, that the vulnerability map is so different to the reproduction is troubling for the internal consistency of the authors' approach. It is worth noting, however, that this negative judgement of success and internal consistency is likely somewhat related to the deviations which were deemed necessary to address the fairly unclear nature of the terminology and normalization scheme of the original study and may not be as related to difficulties in obtaining or processing the data. In sum, a close reproduction of the values in Figures 4 and 5 were not achieved. This reproduction study can thus not be classified as a full success.
+
+**Reanalysis change**: This conclusion section aims to answer whether the reproduction was a success using knowledge from the previous report. It was felt that a closing judgement on this reproduction is of interest due to the myriad planned deviations involved to address perceived problems with the original study.
 
 # Integrity Statement
 
@@ -1469,3 +1500,4 @@ Barrett, S. 2014. Subnational Climate Justice? Adaptation Finance Distribution a
 Gallopín, G. C. 2006. Linkages Between Vulnerability, Resilience, and Adaptive Capacity. Global Environmental Change 16 (3):293–303. DOI: [10.1016/j.gloenvcha.2006.02.004](https://doi.org/10.1016/j.gloenvcha.2006.02.004).
 Rufat, S., E. Tate, C. G. Burton, and A. S. Maroof. 2015. Social vulnerability to floods: Review of case studies and implications for measurement. *International Journal of Disaster Risk Reduction* 14:470–486. DOI: [10.1016/j.ijdrr.2015.09.013](http://dx.doi.org/10.1016/j.ijdrr.2015.09.013).
 Smit, B., and J. Wandel. 2006. Adaptation, adaptive capacity and vulnerability. Global Environmental Change 16 (3):282–292. DOI: [10.1016/j.gloenvcha.2006.03.008](https://doi.org/10.1016/j.gloenvcha.2006.03.008).
+Tate, E. 2013. Uncertainty Analysis for a Social Vulnerability Index. Annals of the Association of American Geographers 103 (3):526–543. DOI:10.1080/00045608.2012.700616[https://doi.org/10.1080/00045608.2012.700616).
