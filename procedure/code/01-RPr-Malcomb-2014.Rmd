@@ -1416,11 +1416,12 @@ range <- ceiling(max(abs(max(vulnerability_r$diffv, na.rm = TRUE)),
 # switch colors to a Colorbrewer divergent scale
 # use grey for lat / long labels
 # switch to using tmap package
-vuln_diff_map = ggplot() +
+vuln_diff_map <- ggplot() +
   geom_stars(data = vulnerability_r["diffv"]) +
   scale_fill_gradient2(
-    low = "#DA65A5",
-    high = "#967CB9",
+    low = "#B35806",
+    mid = "#F7F7F7",
+    high = "#542788",
     breaks = c(-range,0,range),
     labels = c(paste0("-",range), "0", paste0(range)),
     na.value = "transparent",
@@ -1438,7 +1439,50 @@ vuln_diff_map = ggplot() +
 vuln_diff_map
 ```
 
-**Reanalysis change**: These new colors are shades of the past colors. This may assist with viewing some of the lighter values (closer to 0). I used the website Color-Hex (https://www.color-hex.com/) to help with choosing darker colors.
+**Reanalysis change**: The new colors are part of a Colorbrewer diverging scale, which is indicated to be the desired type of color ramp for the raster. The new `mid` parameter sets the midpoint, 0,  as white. A diverging scale with varied colors may allow readers to see differences more easily.
+
+Map differences in Figure 5 using tmap package.
+
+```{r vulnerability-difference-map-tmap}
+# Set tmap mode
+tmap_mode("view")
+
+# Create tmap based on ggplot above
+vuln_diff_tmap <- tm_shape(vulnerability_r["diffv"]) + tm_raster(
+    palette = "PuOr",
+    style = "cont",
+    breaks = c(-range,0,range),
+    labels = c(paste0("-",range), "0", paste0(range)),
+    midpoint = 0,
+    title = "Vulnerability:\nReproduction -\nOriginal",
+    legend.show=T
+)
+
+vuln_diff_tmap
+```
+
+**Reanalysis change**: This new map is constructed using the `tmap` package, which creates an interactive map with a basemap. The comment above from the reproduction study authors indicates that they would like to have the vulnerability difference values be mapped using this package. The color ramp is the same Colorbrewer diverging scale as used above.
+
+Display histogram of vulnerability values.
+
+```{r}
+# Output descriptive statistics of difference band
+vulnerability_r["diffv"]
+
+# Convert entire vulnerability raster to raster object to facilitate histogram
+diff_raster <- vulnerability_r %>% as("Raster")
+
+# Plot a histogram of the difference values
+hist(diff_raster$diffv,
+     main = "Distribution of difference values",
+     xlab = "Vulnerability: Reproduction - Original", ylab = "Frequency",
+     col = "darkgray",
+     freq=T)
+```
+
+**Reanalysis change**: Visualizing a histogram of the difference values can reveal characteristics of the distribution of values that were not clear from looking at the raster. For example, it is possible to look at the tailedness. Ensuring that the band is output in R also shows the descriptive statistics of the values (min, quartiles, and mean), which supplement the histogram.
+
+Save data as layers.
 
 ```{r save-fig5-comparison-data}
 write_stars(vulnerability_r, here(public_d, "fig5diff.tif"), layer = "diffv")
@@ -1448,9 +1492,9 @@ write_stars(vulnerability_r, here(public_d, "fig5rp.tif"), layer = "rpv")
 
 # Discussion
 
-Another of the most salient features of the results of this study is the figure which compares Figure 5 from Malcomb et al. (2014), which was re-created by the authors of this study, and the reproduction of that figure. In this figure, which can be referred to as the vulnerability difference map or the comparison figure, the values for vulnerability to climate change (shortened to “vulnerability”) from the original Figure 5 are subtracted from the values included in the reproduction figure. The result is a map which contains values ranging from -84 to 84. A relatively low value for a given pixel indicates that the reproduction figure had a lower vulnerability value than the original figure (e.g. 100 [reproduction] - 180 [original] = -80 [comparison]), and vice versa. This concept can be applied to the entire comparison figure to provide general assessments of the differences between the figures.
+One of the most salient features of the results of this study is the figure which compares Figure 5 from Malcomb et al. (2014), which was re-created by the authors of this study, and the reproduction of that figure. In this figure, which can be referred to as the vulnerability difference map or the comparison figure, the values for vulnerability to climate change (shortened to “vulnerability”) from the original Figure 5 are subtracted from the values included in the reproduction figure. The result is a map which has a scale ranging from -84 to 84. A relatively low value for a given pixel indicates that the reproduction figure had a lower vulnerability value than the original figure (e.g. 100 [reproduction] - 180 [original] = -80 [comparison]), and vice versa. This concept can be applied to the entire comparison figure to provide general assessments of the differences between the figures.
 
-The values for vulnerability are seen to be lower in the reproduction compared to the original assessment for much of the country, including around the area corresponding to the Southern Lakeshore livelihood zone. There are select areas - including the north of the country and part of the Lower Shire Valley - where vulnerability values are greater in the reproduction figure than the original. This pattern, however, is more sparse than the substantial percentage of the country which appears to have a negative difference. As such, it may be noted that there is a general trend of the reproduction suggesting that most areas of Malawi are less vulnerable than Malcomb et al. conclude. Given that Malcomb et al. compare their results with vulnerability assessments conducted by the national government, the consistency of vulnerability results may present a concern to future applications of their paper.
+The values for vulnerability are seen to be lower in the reproduction compared to the original assessment for much of the country, including around the area corresponding to the Southern Lakeshore livelihood zone. Indeed, the histogram showing the frequency of difference values indicates that there are more negative than positive values. The band has an approximately normal distribution with a mean and median value of about -17. As the distribution appears mostly normal, the frequency distribution is centered close to the median and mode. Moreover, the histogram has a slightly longer right tail compared to its left tail; the maximum value is approximately 73 while the minimum is approximately -84. Thus, the average value for a pixel in the comparison figure is -17, which is consistent with a cursory observation of the many locations in Malawi which are indicated to have slightly negative values in the legend. There are select areas - including the north of the country and part of the Lower Shire Valley - where vulnerability values are greater in the reproduction figure than the original. This pattern, however, appears more sparse on the comparison figure, an observation which is supported by the histogram. As such, it may be noted that there is a general trend of the reproduction suggesting that many areas of Malawi are less vulnerable than Malcomb et al. conclude. Given that Malcomb et al. compare their results with vulnerability assessments conducted by the national government, the consistency of vulnerability results may present a concern to future applications of their paper. If the approach used by the original authors were internally consistent (Spielman et al. 2020), there would ideally be fewer non-zero values when comparing a reproduction of the approach to the original results.
 
 These differences may be partially attributed to the changed equation for vulnerability compared to the original study. Whereas Malcomb et al. (2014) used the equation `“Assets + Access + Livelihoods - Exposure”`, the reproduction study calculated vulnerability using the equation `“Vulnerability = (40 - Adaptive Capacity) + Livelihood Sensitivity + Drought Exposure + Flood Risk”`. Altering the equation such that physical exposure (the final two terms) is inverted was a planned deviation to obtain an equation which better represents other vulnerability assessments in the literature; adaptive capacity is often included as a variable which is subtracted from other variables, which is the inversion of its usage in the equation from the original study (Prof. Holler, personal communication, 10/19/2023). 
 
