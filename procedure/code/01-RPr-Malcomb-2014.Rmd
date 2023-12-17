@@ -97,13 +97,14 @@ library(tmap)
 library(units)
 library(knitr)
 library(here)
+library(raster)
 ```
 
 ```{r setup, include = FALSE, eval = FALSE}
 # list of required packages
 packages = c("downloader", "rdhs", "haven", "readr", "tidyverse", "pastecs",
              "stars", "sf", "sp", "classInt", 
-             "tmap", "units", "knitr", "rgdal")
+             "tmap", "units", "knitr", "rgdal", "raster")
 
 # removed s2, pastecs, cartography, rgdal
 # replaced dplyr and ggplot2 with tidyverse
@@ -589,7 +590,7 @@ The adaptive capacity calculation at the household level also requires urban/rur
 cluster_ta <- dhsclusters %>% 
   st_join(ta_v) %>% 
   st_drop_geometry() %>% 
-  select(DHSCLUST, ta_id = ID_2, urban_rural = URBAN_RURA)
+  dplyr::select(DHSCLUST, ta_id = ID_2, urban_rural = URBAN_RURA)
 
 cluster_ta %>% saveRDS(here(public_d, "cluster_ta.rds"))
 ```
@@ -606,7 +607,7 @@ paste(sum(is.na(cluster_ta$ta_id)),
 # select variables for adaptive capacity analysis
 dhshh <- dhshh %>%
   left_join(cluster_ta, by = c("HV001" = "DHSCLUST")) %>% 
-  select(
+  dplyr::select(
     HHID,
     HV001,
     HV002,
@@ -890,7 +891,7 @@ Therefore, we may multiply our possible domain of 0 to 1.6 by 25 to achieve a po
 # join adaptive capacity table to traditional authorities vector
 ta_v <- left_join(
   ta_v,
-  select(ta_capacity_t, ta_id, rpac = capacity_avg),
+  dplyr::select(ta_capacity_t, ta_id, rpac = capacity_avg),
   by = c("ID_2" = "ta_id")
 )
 
@@ -899,7 +900,7 @@ ta_v <- mutate(ta_v, rpac_unscaled = rpac, rpac = rpac * 25)
 
 ta_stats <- ta_v %>% 
   st_drop_geometry %>% 
-  select(rpac_unscaled, rpac) %>% 
+  dplyr::select(rpac_unscaled, rpac) %>% 
   stat.desc() %>%
   mutate_if(is.numeric, round, digits=2)
 ta_stats[-c(2,7,10:12,14),] %>% kable() # brackets remove unnecessary statistics from output
@@ -1012,7 +1013,7 @@ ta_fig4 %>% st_drop_geometry() %>% count(orac) %>% kable()
 ta_fig4$orac[ta_fig4$orac < 0] <- NA
 
 # join to ta_v
-ta_fig4_t <- ta_fig4 %>% st_drop_geometry() %>% select(ID_2, orac)
+ta_fig4_t <- ta_fig4 %>% st_drop_geometry() %>% dplyr::select(ID_2, orac)
 ta_v <- ta_v %>% left_join(ta_fig4_t, by="ID_2")
 rm(ta_fig4, ta_fig4_t)
 ```
@@ -1256,7 +1257,7 @@ ggplot() +
 
 lhz_v %>% 
   st_drop_geometry %>% 
-  select(sensitivity) %>% 
+  dplyr::select(sensitivity) %>% 
   stat.desc() %>% 
   mutate_if(is.numeric, round, digits=2)
 ```
@@ -1469,11 +1470,15 @@ Display histogram of vulnerability values.
 # Output descriptive statistics of difference band
 vulnerability_r["diffv"]
 
-# Convert entire vulnerability raster to raster object to facilitate histogram
-diff_raster <- vulnerability_r %>% as("Raster")
+# Convert band to raster object to facilitate histogram
+vuln_raster <- vulnerability_r %>% as("Raster")
+
+diff_raster <- vuln_raster$diffv
+
+diff_values <- values(diff_raster) %>% na.omit()
 
 # Plot a histogram of the difference values
-hist(diff_raster$diffv,
+hist(diff_values,
      main = "Distribution of difference values",
      xlab = "Vulnerability: Reproduction - Original", ylab = "Frequency",
      col = "darkgray",
